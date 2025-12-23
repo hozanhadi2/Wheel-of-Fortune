@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="ar" dir="rtl" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>عجلة حظ الطلاب</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <style>
+    body {
+      box-sizing: border-box;
+    }
+    
+    @keyframes spin {
+      from {
+        transform: rotate(0deg);
+      }
+      to {
+        transform: rotate(var(--spin-rotation));
+      }
+    }
+    
+    .spinning {
+      animation: spin var(--spin-duration) cubic-bezier(0.17, 0.67, 0.12, 0.99);
+    }
+    
+    @keyframes celebrate {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+    
+    .celebrate {
+      animation: celebrate 0.5s ease-in-out;
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full">
+  <div id="app" class="h-full w-full flex flex-col items-center justify-center p-8" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+   <div class="text-center mb-8">
+    <h1 id="title" class="text-5xl font-bold text-white mb-2">عجلة حظ الطلاب</h1>
+    <p class="text-white text-lg opacity-90">أضف أسماء الطلاب واختر واحداً بشكل عشوائي</p>
+   </div>
+   <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-4xl w-full">
+    <div class="mb-6"><label for="studentInput" class="block text-gray-700 font-semibold mb-2 text-lg">أضف اسم طالب:</label>
+     <div class="flex gap-3"><input type="text" id="studentInput" class="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-purple-500 text-lg" placeholder="اكتب اسم الطالب هنا..."> <button id="addButton" class="px-8 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl transition-colors text-lg"> إضافة </button>
+     </div>
+    </div>
+    <div id="studentsList" class="mb-6 flex flex-wrap gap-2 min-h-12">
+    </div>
+    <div class="flex flex-col items-center justify-center mb-6">
+     <div class="relative mb-8">
+      <div class="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-full z-10">
+       <div class="w-0 h-0 border-l-[20px] border-l-transparent border-r-[20px] border-r-transparent border-t-[40px] border-t-red-500"></div>
+      </div>
+      <canvas id="wheel" width="400" height="400" class="drop-shadow-2xl"></canvas>
+     </div><button id="spinButton" class="px-12 py-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold rounded-full transition-all transform hover:scale-105 text-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"> تدوير العجلة 🎯 </button>
+    </div>
+    <div id="result" class="text-center hidden">
+     <div class="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-2xl p-6 shadow-lg">
+      <p class="text-white text-xl mb-2">الفائز هو:</p>
+      <p id="winnerName" class="text-white text-4xl font-bold"></p>
+     </div>
+    </div>
+   </div>
+  </div>
+  <script>
+    const defaultConfig = {
+      title_text: "عجلة حظ الطلاب",
+      button_text: "تدوير العجلة 🎯",
+      background_color: "#667eea",
+      surface_color: "#ffffff",
+      text_color: "#374151",
+      primary_action_color: "#8b5cf6",
+      secondary_action_color: "#10b981",
+      font_family: "Arial",
+      font_size: 16
+    };
+
+    let students = [
+      'بدر كحلوت',
+      'جراح رباح',
+      'سنان كميم',
+      'نواف ال رشود',
+      'محمد عنزي',
+      'فهد الحربي',
+      'حارث البلوي',
+      'عبد الإله قحطاني',
+      'عبد العزيز العنزي',
+      'عدنان الحافز',
+      'راشد الفراج',
+      'مروان الحافز',
+      'سائد النجار',
+      'عبد الله العثيمين',
+      'عبد العزيز الصوصو',
+      'مشاري الدوسري',
+      'مترك القحطاني',
+      'محمد قاسم',
+      'تركي الدوسري',
+      'مبارك الدوسري',
+      'ياسر معافى',
+      'ريان الشهري',
+      'منصور مقيرن',
+      'فهد الشيباني',
+      'محمد موسى',
+      'سند الجهني',
+      'فالح المقاطي'
+    ];
+    let isSpinning = false;
+    const canvas = document.getElementById('wheel');
+    const ctx = canvas.getContext('2d');
+
+    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2'];
+
+    function drawWheel() {
+      if (students.length === 0) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#f3f4f6';
+        ctx.beginPath();
+        ctx.arc(200, 200, 200, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.fillStyle = '#9ca3af';
+        ctx.font = '20px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('أضف أسماء الطلاب', 200, 200);
+        return;
+      }
+
+      const centerX = 200;
+      const centerY = 200;
+      const radius = 200;
+      const arc = (2 * Math.PI) / students.length;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      students.forEach((student, index) => {
+        const angle = index * arc;
+        
+        ctx.beginPath();
+        ctx.fillStyle = colors[index % colors.length];
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, radius, angle, angle + arc);
+        ctx.lineTo(centerX, centerY);
+        ctx.fill();
+
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.rotate(angle + arc / 2);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 18px Arial';
+        ctx.fillText(student, radius - 20, 10);
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.moveTo(centerX, centerY);
+        ctx.lineTo(
+          centerX + radius * Math.cos(angle),
+          centerY + radius * Math.sin(angle)
+        );
+        ctx.stroke();
+      });
+
+      ctx.beginPath();
+      ctx.fillStyle = '#ffffff';
+      ctx.arc(centerX, centerY, 15, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+
+    function addStudent() {
+      const input = document.getElementById('studentInput');
+      const name = input.value.trim();
+      
+      if (name && !students.includes(name)) {
+        students.push(name);
+        input.value = '';
+        updateStudentsList();
+        drawWheel();
+      }
+    }
+
+    function removeStudent(name) {
+      students = students.filter(s => s !== name);
+      updateStudentsList();
+      drawWheel();
+      document.getElementById('result').classList.add('hidden');
+    }
+
+    function updateStudentsList() {
+      const list = document.getElementById('studentsList');
+      
+      if (students.length === 0) {
+        list.innerHTML = '<p class="text-gray-400 text-center w-full">لا يوجد طلاب بعد...</p>';
+        return;
+      }
+
+      list.innerHTML = students.map(student => `
+        <div class="bg-purple-100 px-4 py-2 rounded-lg flex items-center gap-2">
+          <span class="text-purple-800 font-medium">${student}</span>
+          <button onclick="removeStudent('${student}')" class="text-red-500 hover:text-red-700 font-bold">✕</button>
+        </div>
+      `).join('');
+    }
+
+    function spinWheel() {
+      if (students.length === 0 || isSpinning) return;
+
+      isSpinning = true;
+      document.getElementById('spinButton').disabled = true;
+      document.getElementById('result').classList.add('hidden');
+
+      const spins = 5 + Math.random() * 3;
+      const extraDegrees = Math.random() * 360;
+      const totalRotation = spins * 360 + extraDegrees;
+      
+      const segmentAngle = 360 / students.length;
+      const adjustedRotation = totalRotation + (segmentAngle / 2);
+      const normalizedRotation = adjustedRotation % 360;
+      const winningSegment = Math.floor((360 - normalizedRotation) / segmentAngle) % students.length;
+      
+      canvas.style.setProperty('--spin-rotation', `${totalRotation}deg`);
+      canvas.style.setProperty('--spin-duration', '4s');
+      canvas.classList.add('spinning');
+
+      setTimeout(() => {
+        canvas.classList.remove('spinning');
+        canvas.style.transform = `rotate(${totalRotation % 360}deg)`;
+        
+        const winner = students[winningSegment];
+        document.getElementById('winnerName').textContent = winner;
+        const resultDiv = document.getElementById('result');
+        resultDiv.classList.remove('hidden');
+        resultDiv.classList.add('celebrate');
+        
+        setTimeout(() => {
+          resultDiv.classList.remove('celebrate');
+        }, 500);
+
+        isSpinning = false;
+        document.getElementById('spinButton').disabled = false;
+      }, 4000);
+    }
+
+    document.getElementById('addButton').addEventListener('click', addStudent);
+    document.getElementById('studentInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addStudent();
+      }
+    });
+    document.getElementById('spinButton').addEventListener('click', spinWheel);
+
+    window.removeStudent = removeStudent;
+
+    // Initialize display with students
+    updateStudentsList();
+    drawWheel();
+
+    async function onConfigChange(config) {
+      const titleElement = document.getElementById('title');
+      const spinButton = document.getElementById('spinButton');
+      const appDiv = document.getElementById('app');
+
+      const titleText = config.title_text || defaultConfig.title_text;
+      const buttonText = config.button_text || defaultConfig.button_text;
+      const backgroundColor = config.background_color || defaultConfig.background_color;
+      const primaryActionColor = config.primary_action_color || defaultConfig.primary_action_color;
+      const customFont = config.font_family || defaultConfig.font_family;
+      const baseFontSize = config.font_size || defaultConfig.font_size;
+
+      titleElement.textContent = titleText;
+      spinButton.textContent = buttonText;
+      appDiv.style.background = `linear-gradient(135deg, ${backgroundColor} 0%, ${primaryActionColor} 100%)`;
+
+      titleElement.style.fontFamily = `${customFont}, Arial, sans-serif`;
+      titleElement.style.fontSize = `${baseFontSize * 2}px`;
+    }
+
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange,
+        mapToCapabilities: (config) => ({
+          recolorables: [
+            {
+              get: () => config.background_color || defaultConfig.background_color,
+              set: (value) => {
+                config.background_color = value;
+                window.elementSdk.setConfig({ background_color: value });
+              }
+            },
+            {
+              get: () => config.primary_action_color || defaultConfig.primary_action_color,
+              set: (value) => {
+                config.primary_action_color = value;
+                window.elementSdk.setConfig({ primary_action_color: value });
+              }
+            }
+          ],
+          borderables: [],
+          fontEditable: {
+            get: () => config.font_family || defaultConfig.font_family,
+            set: (value) => {
+              config.font_family = value;
+              window.elementSdk.setConfig({ font_family: value });
+            }
+          },
+          fontSizeable: {
+            get: () => config.font_size || defaultConfig.font_size,
+            set: (value) => {
+              config.font_size = value;
+              window.elementSdk.setConfig({ font_size: value });
+            }
+          }
+        }),
+        mapToEditPanelValues: (config) => new Map([
+          ["title_text", config.title_text || defaultConfig.title_text],
+          ["button_text", config.button_text || defaultConfig.button_text]
+        ])
+      });
+    }
+
+    drawWheel();
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9b27dbb1a43b2cfa',t:'MTc2NjQ5MjkwMC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
